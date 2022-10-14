@@ -19,7 +19,7 @@ type Coin struct {
 	High       float64 `json:"high,string"`
 	Low        float64 `json:"low,string"`
 	VarBid     float64 `json:"varBid,string"`
-	PctChange  int     `json:"pctChange,string"`
+	PctChange  float64 `json:"pctChange,string"`
 	Bid        float64 `json:"bid,string"`
 	Ask        float64 `json:"ask,string"`
 	Timestamp  string  `json:"timestamp"`
