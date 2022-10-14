@@ -29,6 +29,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	if res.StatusCode != http.StatusOK {
+		fmt.Println("The API returned an unexpected error.")
+		return
+	}
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		panic(err)
