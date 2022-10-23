@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"regexp"
 	"time"
 )
+
+type Clasure func()
 
 type addressViaCep struct {
 	Cep         string `json:"cep"`
@@ -50,10 +53,12 @@ func main() {
 		return
 	}
 	addrFromApiCep := make(chan Address)
+	cancelApiCepCtx, cancelApiCepHandlerFubc := context.WithCancel(context.Background())
 	addrFromViaCep := make(chan Address)
+	cancelViaCepCtx, cancelViaCepHandlerFubc := context.WithCancel(context.Background())
 
 	go func() {
-		addr, err := GetAddressFromAPICep(zipCode)
+		addr, err := GetAddressFromAPICep(zipCode, cancelApiCepCtx)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -61,7 +66,7 @@ func main() {
 	}()
 
 	go func() {
-		addr, err := GetAddressFromViaCep(zipCode)
+		addr, err := GetAddressFromViaCep(zipCode, cancelViaCepCtx)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -70,8 +75,10 @@ func main() {
 
 	select {
 	case addr := <-addrFromApiCep:
+		cancelViaCepHandlerFubc()
 		PrintAddr(addr, "ApiCep")
 	case addr := <-addrFromViaCep:
+		cancelApiCepHandlerFubc()
 		PrintAddr(addr, "ViaCep")
 	case <-time.After(1 * time.Second):
 		fmt.Println(errors.New("Timeout"))
@@ -79,9 +86,13 @@ func main() {
 }
 
 // GetAddressFromAPICep - Get address data from https://apicep.com/
-func GetAddressFromAPICep(zipCode string) (Address, error) {
+func GetAddressFromAPICep(zipCode string, cancelCtx context.Context) (Address, error) {
 	url := fmt.Sprintf("https://cdn.apicep.com/file/apicep/%s.json", zipCode)
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(cancelCtx, "GET", url, nil)
+	if err != nil {
+		return Address{}, err
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return Address{}, err
 	}
@@ -102,9 +113,13 @@ func GetAddressFromAPICep(zipCode string) (Address, error) {
 	return addr, nil
 }
 
-func GetAddressFromViaCep(zipCode string) (Address, error) {
+func GetAddressFromViaCep(zipCode string, cancelCtx context.Context) (Address, error) {
 	url := fmt.Sprintf("https://viacep.com.br/ws/%s/json/", zipCode)
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(cancelCtx, "GET", url, nil)
+	if err != nil {
+		return Address{}, err
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return Address{}, err
 	}
